@@ -1,7 +1,9 @@
 #include <iostream>
 #include "particle.h"
 #include "grid.h"
+#include "gif.h"
 #include <array>
+#include <vector>
 constexpr static int MaxParticles = 1000;
 constexpr static int GridSize = 100;
 constexpr static float DeltaTime = 1e-2;
@@ -121,15 +123,30 @@ void AddParticle(glm::vec2 pos){
 }
 int main(int argc, char ** args)
 {
+
+	std::vector<uint8_t> frame(GridSize * GridSize * 4, 0);
+	auto fileName = "out.gif";
+	int delay = 100;
     for(int v = 0;v < 10;++v){
         AddParticle(glm::vec2(30+(v/2.0),40));
     }
     int MaxTime = 100; 
+    GifWriter g;
+	GifBegin(&g, fileName, GridSize, GridSize, delay);
     for(int t = 0;t < MaxTime;++t)
     {
         std::cout<<"T:"<<t<<std::endl;
         Update();
         SaveParticles();
+        for(int i = 0;i < ParticleCount;++i){
+            auto p = ParticleList[i];
+            int x = p.Position.x;
+            int y = p.Position.x;
+            int v = 4 * (x + (GridSize * y));
+            frame[v] = 255;
+        }
+        GifWriteFrame(&g, frame.data(), GridSize, GridSize, delay);
     }
+	GifEnd(&g);
     std::cout<<"Finished"<<std::endl;
 }
