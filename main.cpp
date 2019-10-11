@@ -107,6 +107,7 @@ void Intergrate()
         particle.Strain += particle.StrainRate * DeltaTime;
         particle.Stress[0][0] = particle.Strain[0][0] * particle.E;
         particle.Stress[1][1] = particle.Strain[1][1] * particle.E;
+        particle.Force = glm::vec2(0,-9.8 * particle.Mass);
     }
 }
 void Update()
@@ -123,8 +124,7 @@ void AddParticle(glm::vec2 pos){
 }
 int main(int argc, char ** args)
 {
-
-	std::vector<uint8_t> frame(GridSize * GridSize * 4, 0);
+	std::vector<uint8_t> frame(GridSize * GridSize * 10 * 10 * 4, 0);
 	auto fileName = "out.gif";
 	int delay = 100;
     for(int v = 0;v < 10;++v){
@@ -132,20 +132,27 @@ int main(int argc, char ** args)
     }
     int MaxTime = 100; 
     GifWriter g;
-	GifBegin(&g, fileName, GridSize, GridSize, delay);
+	GifBegin(&g, fileName, GridSize * 10, GridSize * 10, delay);
     for(int t = 0;t < MaxTime;++t)
     {
         std::cout<<"T:"<<t<<std::endl;
-        Update();
-        SaveParticles();
+        //Update();
         for(int i = 0;i < ParticleCount;++i){
             auto p = ParticleList[i];
-            int x = p.Position.x;
-            int y = p.Position.x;
-            int v = 4 * (x + (GridSize * y));
-            frame[v] = 255;
+            for(int dx = 0;dx < 10;++dx){
+                for(int dy = 0;dy < 10;++dy){
+                    int x = p.Position.x + dx;
+                    int y = p.Position.y + dy;
+                    int v = 4 * ((x * 10) + (GridSize * 10 * y));
+                    if(x <= 0 && x <GridSize){
+                        if(y <= 0 && y <GridSize){
+                            frame[v] = 255;
+                        }
+                    }
+                }
+            }
         }
-        GifWriteFrame(&g, frame.data(), GridSize, GridSize, delay);
+        GifWriteFrame(&g, frame.data(), GridSize * 10, GridSize * 10, delay);
     }
 	GifEnd(&g);
     std::cout<<"Finished"<<std::endl;
