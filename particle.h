@@ -3,8 +3,8 @@
 struct Particle{
     int Type = 0;
     float Mass = 1;
-    float YoungsModulus = -1e5;
-    float PoissonsRatio = 0.5;
+    float YoungsModulus = -1e4;
+    float PoissonsRatio = 0.0;
     float Viscosity = 0;
     glm::vec2 Position = glm::vec2(0);
     glm::vec3 Colour = glm::vec3(0);

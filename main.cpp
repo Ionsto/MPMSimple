@@ -9,12 +9,13 @@
 #include <vector>
 constexpr static int MaxParticles = 5000;
 constexpr static int RealSize = 100;
-constexpr static int GridSize = 100;
+constexpr static int GridSize = 10;
+constexpr static int MaxTime = 10;
 constexpr static float GridDim = static_cast<float>(RealSize) / static_cast<float>(GridSize);
 constexpr static float DeltaTime = 1e-3;
 static constexpr int SubSteps = 100;
 static constexpr int Resolution = 20;
-static constexpr int RenderSize = GridSize * Resolution;
+static constexpr int RenderSize = RealSize * Resolution;
 //std::array<Particle,MaxParticles> ParticleList;
 SwapList<Particle,MaxParticles> ParticleList;
 std::array<Grid,GridSize * GridSize> SimGrid;
@@ -24,7 +25,7 @@ Grid & GetGrid(int x, int y){
 }
 float WeightAxis(float x)
 {
-    return 1.0 - std::abs(x);
+    return 1.0 - std::abs(x/GridDim);
 }
 float WeightGradAxis(float x)
 {
@@ -32,7 +33,7 @@ float WeightGradAxis(float x)
     {
         return 0;
     }
-    return std::copysign(-1,x) * GridDim;
+    return std::copysign(-1.0,x) * GridDim;
 }
 float Weight(glm::vec2 distance)
 {
@@ -45,7 +46,7 @@ glm::vec2 WeightGrad(glm::vec2 distance)
 }
 void APIC(int x,int y,Particle p){
     Grid & g = GetGrid(x,y);
-    auto d = p.Position - glm::vec2(static_cast<float>(x),static_cast<float>(y));
+    auto d = p.Position - glm::vec2(static_cast<float>(x) * GridDim,static_cast<float>(y) * GridDim);
     float weight = Weight(d);
     auto weightgrad = WeightGrad(d);
     g.Mass += p.Mass * weight;
@@ -97,9 +98,9 @@ void P2G()
             g.Acceleration = g.Force / g.Mass;
         }
     }
-    float Friction = 0.0;
+    float Friction = 0.1;
     for(int x = 0; x < GridSize;++x){
-        for(int d = 0;d < 4;++d){
+        for(int d = 0;d < 2;++d){
             //Floor 
             GetGrid(x,d).Velocity.y = 0;
             GetGrid(x,d).Velocity.x *= Friction;
@@ -117,7 +118,7 @@ void P2G()
 }
 void G2PNode(int x,int y,Particle & p){
     Grid g = GetGrid(x,y);
-    auto d = p.Position - glm::vec2(static_cast<float>(x),static_cast<float>(y));
+    auto d = p.Position - glm::vec2(static_cast<float>(x * GridDim),static_cast<float>(y * GridDim));
     float weight = Weight(d);
     auto weightgrad = WeightGrad(d);
     p.Velocity += g.Velocity * weight;
@@ -134,8 +135,8 @@ void G2P()
     for(int i = 0; i < ParticleList.ParticleCount;++i)
     {
         auto & particle = ParticleList.Get(i);
-        int GridX = std::floor(particle.Position.x);
-        int GridY = std::floor(particle.Position.y);
+        int GridX = std::floor(particle.Position.x / GridDim);
+        int GridY = std::floor(particle.Position.y / GridDim);
         particle.Velocity = glm::vec2(0);
         particle.Acceleration = glm::vec2(0);
         particle.StrainRate = glm::mat2x2(0);
@@ -186,22 +187,22 @@ void Intergrate()
         }
 
 //Check in bounds
-        if(particle.Position.x < 0)
-        {
-            particle.Position.x = 0;
-        }
-        if(particle.Position.x >= GridSize)
-        {
-            particle.Position.x = GridSize - 0.1;
-        }
-        if(particle.Position.y < 0)
-        {
-            particle.Position.y = 0;
-        }
-        if(particle.Position.y >= GridSize)
-        {
-            particle.Position.y = GridSize - 0.1;
-        }
+//        if(particle.Position.x < 0)
+//        {
+//            particle.Position.x = 0;
+//        }
+//        if(particle.Position.x >= GridSize)
+//        {
+//            particle.Position.x = GridSize - 0.1;
+//        }
+//        if(particle.Position.y < 0)
+//        {
+//            particle.Position.y = 0;
+//        }
+//        if(particle.Position.y >= GridSize)
+//        {
+//            particle.Position.y = GridSize - 0.1;
+//        }
     }
 }
 void Update()
@@ -214,7 +215,7 @@ void Update()
 void AddParticle(glm::vec2 pos){
     auto p = Particle();
     p.Position = pos;
-    p.Type = 1; 
+    p.Type = 0; 
     ParticleList.Add(p);
 }
 void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
@@ -238,7 +239,7 @@ void SaveParticles(GifWriter & g,int delay){
 
         for(int i = 0;i < ParticleList.ParticleCount;++i){
             auto p = ParticleList.Get(i);
-            PaintXY(p.Position.x,GridSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,5);
+            PaintXY(p.Position.x,RealSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,5);
         }
 }
 void PaintNumbers(int MaxTime,int t)
@@ -252,8 +253,7 @@ void PaintNumbers(int MaxTime,int t)
             {
                 PaintXY(b,0,0,255,0);
             }
-        }
-        PaintXY(Bits-1,0,255,255,0);
+        } PaintXY(Bits-1,0,255,255,0);
 }
 int main(int argc, char ** args)
 {
@@ -274,7 +274,6 @@ int main(int argc, char ** args)
 //            AddParticle(glm::vec2((v/density),(u/density)));
 //        }
 //    }
-    int MaxTime = 500; 
     GifWriter g;
 	GifBegin(&g, fileName, RenderSize, RenderSize, delay);
     using namespace std::chrono;
@@ -287,8 +286,9 @@ int main(int argc, char ** args)
             {
                 float dx = 5*((rand() % 1000) / 1000.0);
                 float dy = 5*((rand() % 1000) / 1000.0);
-                AddParticle(glm::vec2(10.0+dx,50+dy));
+                AddParticle(glm::vec2(50.0+dx,50.0+dy));
                 auto & pa = ParticleList.Get(ParticleList.ParticleCount -1);
+                pa.Velocity.x = 1;
                 pa.Colour.r = rand()%255;
                 pa.Colour.g = rand()%255;
                 pa.Colour.b = rand()%255;
