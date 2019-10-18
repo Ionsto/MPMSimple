@@ -22,7 +22,6 @@ public:
 			ParticleList[ParticleCount++] = add;
 			return true;
 		}
-		std::cout << "Failed to add particle\n";
 		return false;
 	}
 	void Remove(int position)

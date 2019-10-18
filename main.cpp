@@ -7,11 +7,12 @@
 #include <array>
 #include <bitset>
 #include <vector>
-constexpr static int MaxParticles = 5000;
-constexpr static int RealSize = 100;
-constexpr static int GridSize = 10;
-constexpr static int MaxTime = 10;
-constexpr static float GridDim = static_cast<float>(RealSize) / static_cast<float>(GridSize);
+constexpr static int MaxParticles = 50000;
+constexpr static int RealSize = 30;
+constexpr static float GridDim = 0.5;
+constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
+constexpr static int MaxTime = 500;
+//constexpr static float GridDim = static_cast<float>(RealSize) / static_cast<float>(GridSize);
 constexpr static float DeltaTime = 1e-3;
 static constexpr int SubSteps = 100;
 static constexpr int Resolution = 20;
@@ -100,7 +101,7 @@ void P2G()
     }
     float Friction = 0.1;
     for(int x = 0; x < GridSize;++x){
-        for(int d = 0;d < 2;++d){
+        for(int d = 0;d < 1;++d){
             //Floor 
             GetGrid(x,d).Velocity.y = 0;
             GetGrid(x,d).Velocity.x *= Friction;
@@ -215,7 +216,7 @@ void Update()
 void AddParticle(glm::vec2 pos){
     auto p = Particle();
     p.Position = pos;
-    p.Type = 0; 
+    p.Type = 1; 
     ParticleList.Add(p);
 }
 void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
@@ -280,22 +281,21 @@ int main(int argc, char ** args)
     auto start = high_resolution_clock::now();
     for(int t = 0;t < MaxTime;++t)
     {
-        if(t%1==0)
+        for(int p = 0;p < 80;++p)
         {
-            for(int p = 0;p < 20;++p)
-            {
-                float dx = 5*((rand() % 1000) / 1000.0);
-                float dy = 5*((rand() % 1000) / 1000.0);
-                AddParticle(glm::vec2(50.0+dx,50.0+dy));
-                auto & pa = ParticleList.Get(ParticleList.ParticleCount -1);
-                pa.Velocity.x = 1;
-                pa.Colour.r = rand()%255;
-                pa.Colour.g = rand()%255;
-                pa.Colour.b = rand()%255;
-            }
+            auto pa = Particle();
+            float dx = 2*((rand() % 1000) / 1000.0);
+            float dy = 2*((rand() % 1000) / 1000.0);
+            pa.Position = glm::vec2(10.0+dx,20.0+dy); 
+            pa.Velocity.x = 0;
+            pa.Type = 1;
+            pa.Colour.r = rand()%255;
+            pa.Colour.g = rand()%255;
+            pa.Colour.b = rand()%255;
+            ParticleList.Add(pa);
         }
         std::cout<<"T:"<<t<<std::endl;
-        for(int i = 0; i< SubSteps;++i){
+        for(int i = 0; i < SubSteps;++i){
             Update();
         }
         std::fill(frame.begin(),frame.end(),0);
