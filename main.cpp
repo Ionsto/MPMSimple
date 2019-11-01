@@ -1,4 +1,4 @@
-include <iostream>
+#include <iostream>
 #include "particle.h"
 #include "grid.h"
 #include "gif.h"
