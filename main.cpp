@@ -286,9 +286,9 @@ int main(int argc, char ** args)
             auto pa = Particle();
             float dx = 2*((rand() % 1000) / 1000.0);
             float dy = 2*((rand() % 1000) / 1000.0);
-            pa.Position = glm::vec2(10.0+dx,20.0+dy); 
-            pa.Velocity.x = 0;
-            pa.Type = 1;
+            pa.Position = glm::vec2(5.0+dx,20.0+dy); 
+            pa.Velocity.x = 10;
+            pa.Type = 0;
             pa.Colour.r = rand()%255;
             pa.Colour.g = rand()%255;
             pa.Colour.b = rand()%255;
