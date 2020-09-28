@@ -7,16 +7,17 @@
 #include <array>
 #include <bitset>
 #include <vector>
+#include <random>
 constexpr static int MaxParticles = 50000;
 constexpr static int RealSize = 30;
 constexpr static float GridDim = 0.5;
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
-constexpr static int MaxTime = 500;
-//constexpr static float GridDim = static_cast<float>(RealSize) / static_cast<float>(GridSize);
-constexpr static float DeltaTime = 1e-3;
-static constexpr int SubSteps = 100;
+constexpr static int MaxTime = 100;
+constexpr static float DeltaTime = 1e-4;
+static constexpr int SubSteps = 1000;
 static constexpr int Resolution = 20;
 static constexpr int RenderSize = RealSize * Resolution;
+
 //std::array<Particle,MaxParticles> ParticleList;
 SwapList<Particle,MaxParticles> ParticleList;
 std::array<Grid,GridSize * GridSize> SimGrid;
@@ -52,8 +53,7 @@ void APIC(int x,int y,Particle p){
     auto weightgrad = WeightGrad(d);
     g.Mass += p.Mass * weight;
     g.Velocity += p.Velocity * p.Mass * weight;
-    g.Force += (p.Stress * weightgrad);
-    g.Force += p.Force * weight;
+    g.Force += (p.Ap * weightgrad);
 }
 void P2G()
 {
@@ -66,22 +66,6 @@ void P2G()
             i -= 1;
             continue;
         }
-//        if(particle.Position.x < 0)
-//        {
-//            particle.Position.x = 0;
-//        }
-//        if(particle.Position.x >= GridSize)
-//        {
-//            particle.Position.x = GridSize - 0.1;
-//        }
-//        if(particle.Position.y < 0)
-//        {
-//            particle.Position.y = 0;
-//        }
-//        if(particle.Position.y >= GridSize)
-//        {
-//            particle.Position.y = GridSize - 0.1;
-//        }
         int GridX = std::floor(particle.Position.x / GridDim);
         int GridY = std::floor(particle.Position.y / GridDim);
         for(int x = 0;x < 2;++x)
@@ -92,14 +76,28 @@ void P2G()
             }
         }
     }
+#pragma omp parallel for
     for(auto & g : SimGrid){
         if(g.Mass != 0)
         {
             g.Velocity /= g.Mass;
-            g.Acceleration = g.Force / g.Mass;
+//            g.Force /= g.Weight;
+        }
+    }
+}
+void UpdateNodes()
+{
+#pragma omp parallel for
+    for(auto & g : SimGrid){
+        if(g.Mass != 0)
+        {
+            //g.Acceleration = (g.Force / g.Mass) + glm::vec2(0,-9.8);
+            g.Acceleration = glm::vec2(0,-9.8);
+            g.Velocity += g.Acceleration * DeltaTime;
         }
     }
     float Friction = 0.1;
+#pragma omp parallel for
     for(int x = 0; x < GridSize;++x){
         for(int d = 0;d < 1;++d){
             //Floor 
@@ -119,13 +117,10 @@ void P2G()
 }
 void G2PNode(int x,int y,Particle & p){
     Grid g = GetGrid(x,y);
-    auto d = p.Position - glm::vec2(static_cast<float>(x * GridDim),static_cast<float>(y * GridDim));
+    auto d = p.Position - glm::vec2(static_cast<float>(x) * GridDim,static_cast<float>(y) * GridDim);
     float weight = Weight(d);
     auto weightgrad = WeightGrad(d);
     p.Velocity += g.Velocity * weight;
-    p.Acceleration += g.Acceleration * weight;
-//    p.Acceleration.x += -1e3 * g.Mass * weightgrad.x;
-//    p.Acceleration.y += -1e3 * g.Mass * weightgrad.y;
     p.StrainRate[0][0] += g.Velocity.x * weightgrad.x;
     p.StrainRate[1][1] += g.Velocity.y * weightgrad.y;
     p.StrainRate[1][0] += 0.5 * (g.Velocity.x * weightgrad.y) + (g.Velocity.y * weightgrad.x);
@@ -158,34 +153,40 @@ void G2P()
 }
 void Intergrate()
 {
+#pragma omp parallel for
     for(int i = 0; i < ParticleList.ParticleCount;++i)
     {
         auto & particle = ParticleList.Get(i);
-//        std::cout << "i:p:"<<particle.Position.x<<" " << particle.Position.y<<std::endl;
-//        std::cout << "i:v:"<<particle.Velocity.x<<" " << particle.Velocity.y<<std::endl;
         particle.Position += particle.Velocity * DeltaTime;
-        particle.Velocity += particle.Acceleration * DeltaTime;
-        particle.Strain += particle.StrainRate * DeltaTime;
-        particle.Force = glm::vec2(0,-9.8 * particle.Mass);
+        //particle.Velocity += particle.Acceleration * DeltaTime;
+        //particle.Strain += particle.StrainRate * DeltaTime;
+        particle.Jp *= (1 + (particle.StrainRate[0][0] + particle.StrainRate[1][1]));
+
+        const float K_water = 50;
+        const float Gamma_water = 3;
+        float dJp = -K_water * (1.0 / pow(particle.Jp, Gamma_water) - 1.0);
+        particle.Ap *= dJp * particle.Volume;
+        //particle.Force += glm::vec2(0,-9.8) * particle.Mass;
+        //particle.Force +=
 //Calculate stress
-        if(particle.Type == 0){
-            float prefix = (particle.YoungsModulus) / (1 - (particle.PoissonsRatio * particle.PoissonsRatio));
-            particle.Stress[0][0] = prefix * (particle.Strain[0][0] + (particle.PoissonsRatio * particle.Strain[1][1]));
-            particle.Stress[1][1] = prefix * (particle.Strain[1][1] + (particle.PoissonsRatio * particle.Strain[0][0]));
-            float meanshearstrain = (particle.Strain[0][1] + particle.Strain[1][0]) / 2.0;
-            float deltaxy = ((0.5 * particle.YoungsModulus) / (1.0 + particle.PoissonsRatio)) * meanshearstrain;
-            particle.Stress[0][1] = deltaxy;
-            particle.Stress[1][0] = deltaxy;
-        }
-        else{
-            float pressure = particle.YoungsModulus * 0.5 * (particle.Strain[0][0] + particle.Strain[1][1]);
-            particle.Stress[0][0] = pressure;
-            particle.Stress[1][1] = pressure;
-            float meanshearstrainrate = (particle.StrainRate[0][1] + particle.StrainRate[1][0]) / 2.0;
-            float shear = particle.Viscosity * meanshearstrainrate;
-            particle.Stress[0][1] = shear;
-            particle.Stress[1][0] = shear;
-        }
+        //if(particle.Type == 0){
+        //    float prefix = (particle.YoungsModulus) / (1 - (particle.PoissonsRatio * particle.PoissonsRatio));
+        //    particle.Stress[0][0] = prefix * (particle.Strain[0][0] + (particle.PoissonsRatio * particle.Strain[1][1]));
+        //    particle.Stress[1][1] = prefix * (particle.Strain[1][1] + (particle.PoissonsRatio * particle.Strain[0][0]));
+        //    float meanshearstrain = (particle.Strain[0][1] + particle.Strain[1][0]) / 2.0;
+        //    float deltaxy = ((0.5 * particle.YoungsModulus) / (1.0 + particle.PoissonsRatio)) * meanshearstrain;
+        //    particle.Stress[0][1] = deltaxy;
+        //    particle.Stress[1][0] = deltaxy;
+        //}
+        //else{
+        //    float pressure = particle.YoungsModulus * 0.5 * (particle.Strain[0][0] + particle.Strain[1][1]);
+        //    particle.Stress[0][0] = pressure;
+        //    particle.Stress[1][1] = pressure;
+        //    float meanshearstrainrate = (particle.StrainRate[0][1] + particle.StrainRate[1][0]) / 2.0;
+        //    float shear = particle.Viscosity * meanshearstrainrate;
+        //    particle.Stress[0][1] = shear;
+        //    particle.Stress[1][0] = shear;
+        //}
 
 //Check in bounds
 //        if(particle.Position.x < 0)
@@ -210,6 +211,7 @@ void Update()
 {
     std::fill(SimGrid.begin(),SimGrid.end(),Grid());
     P2G();
+    UpdateNodes();
     G2P();
     Intergrate();
 }
@@ -260,9 +262,12 @@ int main(int argc, char ** args)
 {
 
 	auto fileName = "out.gif";
-	int delay = 10;
+	int delay = round((DeltaTime* float(SubSteps))/1e-3) / 10;
+    std::cout<<"Delay: "<<delay<<"\n";
     int count = 10;
     float density = 1.5;
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(-0.5,0.5);
 //    for(int v = 0;v < count;++v){
 //        for(int u = 0;u < count;++u){
 //            AddParticle(glm::vec2(10.0+(u/density),30+(v/density)));
@@ -281,13 +286,13 @@ int main(int argc, char ** args)
     auto start = high_resolution_clock::now();
     for(int t = 0;t < MaxTime;++t)
     {
-        for(int p = 0;p < 80;++p)
+        for(int p = 0;p < 50;++p)
         {
             auto pa = Particle();
-            float dx = 2*((rand() % 1000) / 1000.0);
-            float dy = 2*((rand() % 1000) / 1000.0);
-            pa.Position = glm::vec2(5.0+dx,20.0+dy); 
-            pa.Velocity.x = 10;
+            float dx = 2*distribution(generator);
+            float dy = 2*distribution(generator);
+            pa.Position = (glm::vec2(RealSize,RealSize) / 2.0f) + glm::vec2(dx,dy); 
+            pa.Velocity.x = 5 * sinf(3.14 * (float(t) / 20.0));
             pa.Type = 0;
             pa.Colour.r = rand()%255;
             pa.Colour.g = rand()%255;
@@ -305,8 +310,9 @@ int main(int argc, char ** args)
     }
     auto end = std::chrono::high_resolution_clock::now();
     std::fill(frame.begin(),frame.end(),255);
-    GifWriteFrame(&g, frame.data(), RenderSize, RenderSize, delay);
+    GifWriteFrame(&g, frame.data(), RenderSize, RenderSize, delay); 
 	GifEnd(&g);
+
     std::cout<<"Finished"<<std::endl;
     auto dur = duration_cast<duration<double>>(end-start);
     std::cout<<"Took "<< dur.count() <<"s"<<std::endl;

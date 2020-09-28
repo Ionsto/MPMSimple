@@ -3,6 +3,9 @@
 struct Particle{
     int Type = 0;
     float Mass = 0.1;
+    float Volume = 0.1;
+    float Jp = 1;
+    float Ap = 0;
     float YoungsModulus = -1e3;
     float PoissonsRatio = 0.3;
     float Viscosity = 0.0;
