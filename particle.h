@@ -1,20 +1,12 @@
 #pragma once
 #include "glm/glm.hpp"
 struct Particle{
-    int Type = 0;
-    float Mass = 0.1;
-    float Volume = 0.1;
-    float Jp = 1;
-    float Ap = 0;
-    float YoungsModulus = -1e3;
-    float PoissonsRatio = 0.3;
-    float Viscosity = 0.0;
+    int Type = 1;
+    float Mass = 1;
+    float Volume = 1;
     glm::vec2 Position = glm::vec2(0);
     glm::vec3 Colour = glm::vec3(0);
-    glm::vec2 Acceleration = glm::vec2(0);
     glm::vec2 Velocity = glm::vec2(0);
-    glm::vec2 Force = glm::vec2(0);
-    glm::mat2x2 StrainRate = glm::mat2x2(0);
-    glm::mat2x2 Strain = glm::mat2x2(0);
-    glm::mat2x2 Stress = glm::mat2x2(0);
+    glm::mat2x2 VelocityField = glm::mat2(0);
+    glm::mat2x2 DeformationGradient = glm::mat2(1);
 };
