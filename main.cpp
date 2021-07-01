@@ -11,9 +11,10 @@
 #include <random>
 #include <algorithm>
 #include <math.h>
-std::default_random_engine generator;
-std::uniform_real_distribution<float> distribution(-0.5,0.5);
-constexpr static int RealSize = 40;
+
+//std::default_random_engine generator;
+//std::uniform_real_distribution<float> distribution(-0.5,0.5);
+constexpr int RealSize = 40;
 constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
@@ -104,9 +105,9 @@ void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
         }
     }
 }
-void SaveParticles(GifWriter & g,int delay){
-        for(int i = 0;i < ParticleList.ParticleCount;++i){
-            auto p = ParticleList.Get(i);
+void SaveParticles(Phase & ph,GifWriter & g,int delay){
+        for(int i = 0;i < ph.ParticleList.ParticleCount;++i){
+            auto p = ph.ParticleList.Get(i);
             PaintXY(p.Position.x,RealSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,5);
         }
 }
@@ -140,8 +141,7 @@ void PaintVector(glm::vec2 start,glm::vec2 delta){
         }
     }
 }
-template<typename t>
-void PaintGrid(Phase<t> & ph)
+void PaintGrid(Phase & ph)
 {
     for(int x = 0;x < GridSize;++x){
         for(int y = 0;y < RenderSize;++y){
@@ -197,7 +197,7 @@ int main(int argc, char ** args)
         //std::cout<< "Update particle:" << Time_UpdateParticles<<"\n";
         std::fill(frame.begin(),frame.end(),0);
         //PaintGrid();
-        SaveParticles(g,delay);
+        SaveParticles(PhaseWater,g,delay);
         PaintNumbers(MaxTime,t);
         GifWriteFrame(&g, frame.data(), RenderSize,RenderSize, delay);
     }

@@ -11,10 +11,11 @@
 #include <random>
 #include <math.h>
 #include <algorithm>
+#include <functional>
 struct Phase{
     std::function<glm::mat2(Particle &)> model;
     std::default_random_engine generator;
-    std::uniform_real_distribution<float> distribution(-0.5,0.5);
+    std::uniform_real_distribution<float> distribution = std::uniform_real_distribution<float>(-0.5,0.5);
     constexpr static float DeltaTime = 5e-4;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
@@ -118,7 +119,7 @@ struct Phase{
         {
             auto & particle = ParticleList.Get(i);
             IterateOverNeighbours(particle,
-                [] (auto & p, int x ,int y){
+                [=] (auto & p, int x ,int y){
                 //APIC
                 Grid & g = GetGrid(x,y);
                 auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
@@ -140,7 +141,7 @@ struct Phase{
             auto & particle = ParticleList.Get(i);
             float density = 0;
             IterateOverNeighbours(particle,
-                    [&density] (auto & p, int x ,int y){
+                    [=,&density] (auto & p, int x ,int y){
                         Grid g = GetGrid(x,y);
                         auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
                         float w = Weight(d);
@@ -151,7 +152,7 @@ struct Phase{
 
             auto eq_16_term_0 = -particle.Volume * inertial_scalar_inv * stress * DeltaTime;
             IterateOverNeighbours(particle,
-                [eq_16_term_0] (auto & p, int x ,int y){
+                [=,eq_16_term_0] (auto & p, int x ,int y){
                     Grid & g = GetGrid(x,y);
                     auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
                     float w = Weight(d);
@@ -213,7 +214,7 @@ struct Phase{
             particle.Velocity = glm::vec2(0);
             particle.VelocityField = glm::mat2x2(0);
             IterateOverNeighbours(particle,
-                    [] (auto & p, int x ,int y){
+                    [=] (auto & p, int x ,int y){
                         G2PNode(x,y,p);
                     });
             auto FpNew = glm::mat2(1);
@@ -283,13 +284,11 @@ struct Phase{
     double Time_UpdateParticles = 0;
     void Update()
     {
-        Time_ResetGrid += Timeit([=](){
         std::fill(SimGrid.begin(),SimGrid.end(),Grid());
-        },"Reset grid");
-        Time_P2G += Timeit(P2G,"P2G");
-        Time_UpdateNodes += Timeit(UpdateNodes,"Update nodes");
-        Time_G2P += Timeit(G2P,"G2P");
-        Time_UpdateParticles += Timeit(UpdateParticles,"Update particles");
+        P2G();
+        UpdateNodes();
+        G2P();
+        UpdateParticles();
     }
     void AddParticle(glm::vec2 pos){
         auto p = Particle();
@@ -388,4 +387,4 @@ void WaterFlow(glm::vec2 pos,glm::vec2 size,float flow){
             ParticleList.Add(pa);
         }
 }
-}
+};
