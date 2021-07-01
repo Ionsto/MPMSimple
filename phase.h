@@ -119,7 +119,7 @@ struct Phase{
         {
             auto & particle = ParticleList.Get(i);
             IterateOverNeighbours(particle,
-                [=] (auto & p, int x ,int y){
+                [this] (auto & p, int x ,int y){
                 //APIC
                 Grid & g = GetGrid(x,y);
                 auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
@@ -129,9 +129,9 @@ struct Phase{
 #pragma omp atomic update
                     g.Mass += WeightedMass;
 #pragma omp atomic update
-                    g.Velocity[0] += velocity_updated[0];
+                    g.Force[0] += velocity_updated[0];
 #pragma omp atomic update
-                    g.Velocity[1] += velocity_updated[1];
+                    g.Force[1] += velocity_updated[1];
                 });
         }
         //Do constitutive model update
@@ -141,7 +141,7 @@ struct Phase{
             auto & particle = ParticleList.Get(i);
             float density = 0;
             IterateOverNeighbours(particle,
-                    [=,&density] (auto & p, int x ,int y){
+                    [this,&density] (auto & p, int x ,int y){
                         Grid g = GetGrid(x,y);
                         auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
                         float w = Weight(d);
@@ -152,14 +152,14 @@ struct Phase{
 
             auto eq_16_term_0 = -particle.Volume * inertial_scalar_inv * stress * DeltaTime;
             IterateOverNeighbours(particle,
-                [=,eq_16_term_0] (auto & p, int x ,int y){
+                [this,eq_16_term_0] (auto & p, int x ,int y){
                     Grid & g = GetGrid(x,y);
                     auto d = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim) - p.Position;
                     float w = Weight(d);
                     glm::vec2 dv = w * eq_16_term_0 * d; 
                     for(int d = 0;d < 2;++d){
 #pragma omp atomic update
-                        g.Velocity[d] += dv[d];
+                        g.Force[d] += dv[d];
                     }
                 });
             }
@@ -214,7 +214,7 @@ struct Phase{
             particle.Velocity = glm::vec2(0);
             particle.VelocityField = glm::mat2x2(0);
             IterateOverNeighbours(particle,
-                    [=] (auto & p, int x ,int y){
+                    [this] (auto & p, int x ,int y){
                         G2PNode(x,y,p);
                     });
             auto FpNew = glm::mat2(1);
@@ -287,6 +287,15 @@ struct Phase{
         std::fill(SimGrid.begin(),SimGrid.end(),Grid());
         P2G();
         UpdateNodes();
+        G2P();
+        UpdateParticles();
+    }
+    void UpdateBegin(){
+        std::fill(SimGrid.begin(),SimGrid.end(),Grid());
+        P2G();
+        UpdateNodes();
+    }
+    void UpdateEnd(){
         G2P();
         UpdateParticles();
     }

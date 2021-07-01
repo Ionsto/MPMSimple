@@ -11,7 +11,6 @@
 #include <random>
 #include <algorithm>
 #include <math.h>
-
 //std::default_random_engine generator;
 //std::uniform_real_distribution<float> distribution(-0.5,0.5);
 constexpr int RealSize = 40;
@@ -157,10 +156,31 @@ void PaintGrid(Phase & ph)
         }
     }
 }
+void PhaseCoupling(Phase & PhA,Phase & PhB)
+{
+    for(int x = 0; x < PhA.GridSize;++x)
+    {
+        for(int y = 0; y < PhA.GridSize;++y)
+        {
+            auto& GA = PhA.GetGrid(x,y);
+            auto& GB = PhB.GetGrid(x,y);
+            auto dv = GA.Velocity - GB.Velocity;
+            float MassTotal = GA.Mass + GB.Mass;
+            if(MassTotal == 0)
+            {
+                float nA = GA.Mass / MassTotal; float nB = GB.Mass / MassTotal;
+                auto drag = dv * nB;
+                GA.Velocity -= drag;
+                GB.Velocity += drag;
+            }
+        }
+    }
+}
 int main(int argc, char ** args)
 {
 
     PhaseWater.model = ModelWater;
+    PhaseElastic.model = ModelElastic;
 	auto fileName = "out.gif";
 	int delay = round((DeltaTime * float(SubSteps))/1e-2);
     std::cout<<"Delay: "<<delay<<"\n";
@@ -186,8 +206,11 @@ int main(int argc, char ** args)
             if(t < 100){
 //                WaterFlow(glm::vec2(6,3),glm::vec2(5,5),2000 * t / 20);
             }
-            PhaseWater.Update();
-            PhaseElastic.Update();
+            PhaseWater.UpdateBegin();
+            PhaseElastic.UpdateBegin();
+            PhaseCoupling(PhaseWater,PhaseElastic);
+            PhaseWater.UpdateEnd();
+            PhaseElastic.UpdateEnd();
         }
         //std::cout<< "Timings\n";
         //std::cout<< "Reset grid:" << Time_ResetGrid<<"\n";
@@ -198,6 +221,7 @@ int main(int argc, char ** args)
         std::fill(frame.begin(),frame.end(),0);
         //PaintGrid();
         SaveParticles(PhaseWater,g,delay);
+        SaveParticles(PhaseElastic,g,delay);
         PaintNumbers(MaxTime,t);
         GifWriteFrame(&g, frame.data(), RenderSize,RenderSize, delay);
     }
