@@ -9,6 +9,7 @@
 #include <bitset>
 #include <vector>
 #include <random>
+#include <algorithm>
 #include <math.h>
 std::default_random_engine generator;
 std::uniform_real_distribution<float> distribution(-0.5,0.5);
@@ -68,8 +69,8 @@ glm::mat2 ModelWater(Particle & particle){
     return stress;
 }
 
-Phase<ModelWater> PhaseWater;
-Phase<ModelElastic> PhaseElastic;
+Phase PhaseWater;
+Phase PhaseElastic;
 
 std::vector<uint8_t> frame(RenderSize * RenderSize * 4, 0);
 
@@ -159,6 +160,7 @@ void PaintGrid(Phase<t> & ph)
 int main(int argc, char ** args)
 {
 
+    PhaseWater.model = ModelWater;
 	auto fileName = "out.gif";
 	int delay = round((DeltaTime * float(SubSteps))/1e-2);
     std::cout<<"Delay: "<<delay<<"\n";

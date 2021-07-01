@@ -1,3 +1,4 @@
+#pragma once
 #include <iostream>
 #include "particle.h"
 #include "grid.h"
@@ -9,9 +10,12 @@
 #include <vector>
 #include <random>
 #include <math.h>
-template<typename Model>
+#include <algorithm>
 struct Phase{
-    Model model;
+    std::function<glm::mat2(Particle &)> model;
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution(-0.5,0.5);
+    constexpr static float DeltaTime = 5e-4;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
     constexpr static float GridDim = 0.2;
@@ -279,7 +283,7 @@ struct Phase{
     double Time_UpdateParticles = 0;
     void Update()
     {
-        Time_ResetGrid += Timeit([](){
+        Time_ResetGrid += Timeit([=](){
         std::fill(SimGrid.begin(),SimGrid.end(),Grid());
         },"Reset grid");
         Time_P2G += Timeit(P2G,"P2G");
