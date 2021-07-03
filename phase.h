@@ -129,9 +129,9 @@ struct Phase{
 #pragma omp atomic update
                     g.Mass += WeightedMass;
 #pragma omp atomic update
-                    g.Force[0] += velocity_updated[0];
+                    g.Velocity[0] += velocity_updated[0];
 #pragma omp atomic update
-                    g.Force[1] += velocity_updated[1];
+                    g.Velocity[1] += velocity_updated[1];
                 });
         }
         //Do constitutive model update
@@ -159,7 +159,7 @@ struct Phase{
                     glm::vec2 dv = w * eq_16_term_0 * d; 
                     for(int d = 0;d < 2;++d){
 #pragma omp atomic update
-                        g.Force[d] += dv[d];
+                        g.Velocity[d] += dv[d];
                     }
                 });
             }
@@ -170,7 +170,7 @@ struct Phase{
         for(auto & g : SimGrid){
             if(g.Mass != 0)
             {
-                g.Velocity /= g.Mass;
+                g.Velocity = g.Velocity / g.Mass;
                 auto Acceleration = glm::vec2(0,-9.8);
                 g.Velocity += Acceleration * DeltaTime;
             }
@@ -304,7 +304,7 @@ struct Phase{
         p.Position = pos;
         ParticleList.Add(p);
     }
-void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
+void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 35,float resolution = 0.1*1.5){
     float noise = 0.01f;
     glm::ivec2 count = 2.0f*size / resolution;
     float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);

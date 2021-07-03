@@ -18,7 +18,7 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 800;
+constexpr static int MaxTime = 200;
 constexpr static int Delay = 2;
 constexpr static float DeltaTime = 5e-4;
 static constexpr int SubSteps = (Delay * 1e-2)/DeltaTime;
@@ -166,12 +166,13 @@ void PhaseCoupling(Phase & PhA,Phase & PhB)
             auto& GB = PhB.GetGrid(x,y);
             auto dv = GA.Velocity - GB.Velocity;
             float MassTotal = GA.Mass + GB.Mass;
-            if(MassTotal == 0)
+            if(MassTotal != 0)
             {
-                float nA = GA.Mass / MassTotal; float nB = GB.Mass / MassTotal;
-                auto drag = dv * nB;
-                GA.Velocity -= drag;
-                GB.Velocity += drag;
+                float nA = GA.Mass / MassTotal;
+                float nB = GB.Mass / MassTotal;
+                auto drag = dv * 1.0f;
+                GA.Velocity -= (drag * nB);
+                GB.Velocity += (drag * nA);
             }
         }
     }
