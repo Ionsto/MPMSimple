@@ -18,10 +18,10 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 200;
+constexpr static int MaxTime = 2000;
 constexpr static int Delay = 2;
-constexpr static float DeltaTime = 5e-4;
-static constexpr int SubSteps = (Delay * 1e-2)/DeltaTime;
+constexpr static float DeltaTime = 1e-3;
+static constexpr int SubSteps = 2*(Delay * 1e-2)/DeltaTime;
 static constexpr int Resolution = 20;
 static constexpr int RenderSize = RealSize * Resolution;
 
@@ -53,10 +53,36 @@ glm::mat2 ModelWater(Particle & particle){
                     0, -pressure
             );
     particle.Colour.r = 0;
-    particle.Colour.g = 255;
-    particle.Colour.b = 255 * std::clamp(float(rest_density / density),0.0f,1.0f);
+    particle.Colour.g = 0;
+    particle.Colour.b = 255;// * std::clamp(float(rest_density / density),0.0f,1.0f);
 
     float dynamic_viscosity = 0.01;
+    // velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
+    glm::mat2x2 dudv = particle.VelocityField;
+     // build strain from the velocity gradient
+    float trace = (dudv[0][0] + dudv[1][1]);
+    glm::mat2x2 strain = dudv;
+    strain[1][0] = trace;
+    strain[0][1] = trace;
+    glm::mat2x2 viscosity_term = dynamic_viscosity * strain;
+    stress += viscosity_term;
+    return stress;
+}
+glm::mat2 ModelAir(Particle & particle){
+    float eos_stiffness = 300;
+    float eos_power = 4;
+    float rest_density = 0.05;
+    float density = GridDim * GridDim * (particle.Mass / particle.Volume);
+    float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
+    glm::mat2x2 stress = glm::mat2x2(
+                -pressure, 0, 
+                    0, -pressure
+            );
+    particle.Colour.r = 0;
+    particle.Colour.g = 255;
+    particle.Colour.b = 0;
+
+    float dynamic_viscosity = 0.001;
     // velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
     glm::mat2x2 dudv = particle.VelocityField;
      // build strain from the velocity gradient
@@ -71,6 +97,7 @@ glm::mat2 ModelWater(Particle & particle){
 
 Phase PhaseWater;
 Phase PhaseElastic;
+Phase PhaseAir;
 
 std::vector<uint8_t> frame(RenderSize * RenderSize * 4, 0);
 
@@ -182,8 +209,9 @@ int main(int argc, char ** args)
 
     PhaseWater.model = ModelWater;
     PhaseElastic.model = ModelElastic;
+    PhaseAir.model = ModelAir;
 	auto fileName = "out.gif";
-	int delay = round((DeltaTime * float(SubSteps))/1e-2);
+	int delay = Delay;//round((DeltaTime * float(SubSteps))/1e-2);
     std::cout<<"Delay: "<<delay<<"\n";
     float density = 1.5;
     GifWriter g;
@@ -191,6 +219,9 @@ int main(int argc, char ** args)
     using namespace std::chrono;
     auto start = high_resolution_clock::now();
     float WaterHeight = RealSize/5;
+//void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
+    //PhaseAir.CreateRect(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),20,0.3);
+    //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),0.2,0.01);
     PhaseWater.CreatePond(WaterHeight);
     PhaseElastic.CreateBoat(glm::vec2(10,WaterHeight + 3));
     PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
@@ -209,9 +240,13 @@ int main(int argc, char ** args)
             }
             PhaseWater.UpdateBegin();
             PhaseElastic.UpdateBegin();
+            //PhaseAir.UpdateBegin();
             PhaseCoupling(PhaseWater,PhaseElastic);
+            //PhaseCoupling(PhaseWater,PhaseAir);
+            //PhaseCoupling(PhaseElastic,PhaseAir);
             PhaseWater.UpdateEnd();
             PhaseElastic.UpdateEnd();
+            //PhaseAir.UpdateEnd();
         }
         //std::cout<< "Timings\n";
         //std::cout<< "Reset grid:" << Time_ResetGrid<<"\n";
@@ -223,6 +258,7 @@ int main(int argc, char ** args)
         //PaintGrid();
         SaveParticles(PhaseWater,g,delay);
         SaveParticles(PhaseElastic,g,delay);
+        //SaveParticles(PhaseAir,g,delay);
         PaintNumbers(MaxTime,t);
         GifWriteFrame(&g, frame.data(), RenderSize,RenderSize, delay);
     }

@@ -304,10 +304,32 @@ struct Phase{
         p.Position = pos;
         ParticleList.Add(p);
     }
-void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 35,float resolution = 0.1*1.5){
+void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
     float noise = 0.01f;
     glm::ivec2 count = 2.0f*size / resolution;
     float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
+    for(int x = 0;x <= count.x;++x)
+    {
+        for(int y = 0;y <= count.y;++y)
+        {
+            auto pa = Particle();
+            float dx = -size.x + (x*2*size.x/count.x) + (noise * distribution(generator));
+            float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
+            pa.Position = pos + glm::vec2(dx,dy); 
+            pa.Colour.r = 255;
+            pa.Mass = mass_per_unit;
+            pa.Type = 0;
+            ParticleList.Add(pa);
+        }
+    }
+}
+void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float mass = 1){
+    float noise = 0.01f;
+    float mass_per_unit = mass;
+    //int c = ((size.x * size.y * 4) * density)/mass_per_unit;
+    float resolution = std::sqrt(mass_per_unit/density);
+    glm::ivec2 count = 2.0f*size / resolution;
+//    float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
     for(int x = 0;x <= count.x;++x)
     {
         for(int y = 0;y <= count.y;++y)
@@ -350,7 +372,7 @@ void CreateBoat(glm::vec2 pos = (glm::vec2(RealSize,RealSize) / 2.0f)){
     CreateRect(pos + glm::vec2(3.5,1.5),glm::vec2(0.5,2));
     CreateRect(pos + glm::vec2(-3.5,1.5),glm::vec2(0.5,2));
 }
-void CreatePond(float height,float resolution = 0.22)
+void CreatePond(float height,float resolution = 0.12)
 {
     float rest_density = 0.3 * 2;
     float mass = 2;
@@ -362,7 +384,7 @@ void CreatePond(float height,float resolution = 0.22)
         for(int y = 0;y < count.y;++y)
         {
                 auto pa = Particle();
-                pa.Mass = 2;
+                pa.Mass = 0.5;
                 float dx = noise * distribution(generator);
                 float dy = noise * distribution(generator);
                 pa.Position = (glm::vec2(x,y)*resolution)  + glm::vec2(dx,dy) + glm::vec2(border,border); 
