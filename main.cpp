@@ -11,6 +11,11 @@
 #include <random>
 #include <algorithm>
 #include <math.h>
+#include <sstream>
+#include <fstream>
+#include <filesystem>
+#include "TinyPngOut.hpp"
+namespace fs = std::filesystem;
 //std::default_random_engine generator;
 //std::uniform_real_distribution<float> distribution(-0.5,0.5);
 constexpr int RealSize = 40;
@@ -18,9 +23,9 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 2000;
+constexpr static int MaxTime = 400;
 constexpr static int Delay = 2;
-constexpr static float DeltaTime = 1e-3;
+constexpr static float DeltaTime = Phase::DeltaTime;
 static constexpr int SubSteps = 2*(Delay * 1e-2)/DeltaTime;
 static constexpr int Resolution = 20;
 static constexpr int RenderSize = RealSize * Resolution;
@@ -34,7 +39,7 @@ glm::mat2 ModelElastic(Particle & particle)
     auto F_minus_F_inv_T = F - F_inv_T; 
 
     //Lame properties
-    float elastic_mu = 8.2e5; 
+    float elastic_mu = 8.2e6; 
     float elastic_lambda = 11.5e5;
     auto P_term_0 = elastic_mu * (F_minus_F_inv_T);
     auto P_term_1 = elastic_lambda * std::log(J) * F_inv_T;
@@ -45,7 +50,7 @@ glm::mat2 ModelElastic(Particle & particle)
 glm::mat2 ModelWater(Particle & particle){
     float eos_stiffness = 10;
     float eos_power = 4;
-    float rest_density = 0.3 * 2;
+    float rest_density = 1;
     float density = GridDim * GridDim * (particle.Mass / particle.Volume);
     float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
     glm::mat2x2 stress = glm::mat2x2(
@@ -71,7 +76,7 @@ glm::mat2 ModelWater(Particle & particle){
 glm::mat2 ModelAir(Particle & particle){
     float eos_stiffness = 300;
     float eos_power = 4;
-    float rest_density = 0.05;
+    float rest_density = 0.03;
     float density = GridDim * GridDim * (particle.Mass / particle.Volume);
     float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
     glm::mat2x2 stress = glm::mat2x2(
@@ -82,7 +87,7 @@ glm::mat2 ModelAir(Particle & particle){
     particle.Colour.g = 255;
     particle.Colour.b = 0;
 
-    float dynamic_viscosity = 0.001;
+    float dynamic_viscosity = 0.0005;
     // velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
     glm::mat2x2 dudv = particle.VelocityField;
      // build strain from the velocity gradient
@@ -100,6 +105,7 @@ Phase PhaseElastic;
 Phase PhaseAir;
 
 std::vector<uint8_t> frame(RenderSize * RenderSize * 4, 0);
+std::vector<uint8_t> frame_png(RenderSize * RenderSize * 3, 0);
 
 void PaintPixel(float xi,float yi,int r,int g,int b){
     int x = static_cast<int>((xi));
@@ -206,8 +212,11 @@ void PhaseCoupling(Phase & PhA,Phase & PhB)
 }
 int main(int argc, char ** args)
 {
-
-    PhaseWater.model = ModelWater;
+	auto FramePath =fs::current_path() / "Frames/"; 
+    fs::remove_all(FramePath);
+    fs::create_directories(FramePath);
+	std::cout<<FramePath<<std::endl;
+	PhaseWater.model = ModelWater;
     PhaseElastic.model = ModelElastic;
     PhaseAir.model = ModelAir;
 	auto fileName = "out.gif";
@@ -222,9 +231,17 @@ int main(int argc, char ** args)
 //void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
     //PhaseAir.CreateRect(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),20,0.3);
     //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),0.2,0.01);
-    PhaseWater.CreatePond(WaterHeight);
-    PhaseElastic.CreateBoat(glm::vec2(10,WaterHeight + 3));
-    PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
+
+//    PhaseWater.CreatePond(WaterHeight,0.2,1);
+//    PhaseElastic.CreateBoat(glm::vec2(10,WaterHeight + 3));
+//    PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
+    float BeamLength = RealSize/5;
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,0.1),40);
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,8));
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,8));
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(2,4),90);
+
+
     for(int t = 0;t < MaxTime;++t)
     {
         float dt = DeltaTime;
@@ -233,20 +250,19 @@ int main(int argc, char ** args)
             //CreateBlock();
             //CreateBoat();
         }
+		if(t % 1 == 0 && t < 40){
+//			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,2*RealSize/3),glm::vec2(RealSize/2.0,RealSize/10.0),0.04,0.1);
+		}
         for(int i = 0; i < SubSteps;++i){
-
-            if(t < 100){
-//                WaterFlow(glm::vec2(6,3),glm::vec2(5,5),2000 * t / 20);
-            }
             PhaseWater.UpdateBegin();
             PhaseElastic.UpdateBegin();
-            //PhaseAir.UpdateBegin();
+            PhaseAir.UpdateBegin();
             PhaseCoupling(PhaseWater,PhaseElastic);
-            //PhaseCoupling(PhaseWater,PhaseAir);
-            //PhaseCoupling(PhaseElastic,PhaseAir);
+            PhaseCoupling(PhaseWater,PhaseAir);
+            PhaseCoupling(PhaseElastic,PhaseAir);
             PhaseWater.UpdateEnd();
             PhaseElastic.UpdateEnd();
-            //PhaseAir.UpdateEnd();
+            PhaseAir.UpdateEnd();
         }
         //std::cout<< "Timings\n";
         //std::cout<< "Reset grid:" << Time_ResetGrid<<"\n";
@@ -256,11 +272,25 @@ int main(int argc, char ** args)
         //std::cout<< "Update particle:" << Time_UpdateParticles<<"\n";
         std::fill(frame.begin(),frame.end(),0);
         //PaintGrid();
+        SaveParticles(PhaseAir,g,delay);
         SaveParticles(PhaseWater,g,delay);
         SaveParticles(PhaseElastic,g,delay);
-        //SaveParticles(PhaseAir,g,delay);
         PaintNumbers(MaxTime,t);
         GifWriteFrame(&g, frame.data(), RenderSize,RenderSize, delay);
+		std::ostringstream stringStream;
+		stringStream << "frame " << t << " .png";
+		auto filename = stringStream.str();
+		auto path = FramePath/filename;
+
+		for(int i = 0,j = 0;i < frame.size();){
+			frame_png[j++] = frame[i++];
+			frame_png[j++] = frame[i++];
+			frame_png[j++] = frame[i++];
+			++i;
+		}
+		std::ofstream out(path, std::ios::binary);
+		TinyPngOut pngout(static_cast<uint32_t>(RenderSize), static_cast<uint32_t>(RenderSize), out);
+		pngout.write(frame_png.data(), static_cast<size_t>(RenderSize * RenderSize));
     }
     auto end = std::chrono::high_resolution_clock::now();
     std::fill(frame.begin(),frame.end(),255);

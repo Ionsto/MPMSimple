@@ -16,7 +16,7 @@ struct Phase{
     std::function<glm::mat2(Particle &)> model;
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution = std::uniform_real_distribution<float>(-0.5,0.5);
-    constexpr static float DeltaTime = 5e-4;
+    constexpr static float DeltaTime = 1e-4;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
     constexpr static float GridDim = 0.2;
@@ -68,49 +68,6 @@ struct Phase{
                 }
             }
         }
-    }
-    glm::mat2 ModelElastic(Particle & particle)
-    {
-        auto F = particle.DeformationGradient;
-        auto J = glm::determinant(F);
-        auto F_T = glm::transpose(F);
-        auto F_inv_T = glm::inverse(F_T);
-        auto F_minus_F_inv_T = F - F_inv_T; 
-
-        //Lame properties
-        float elastic_mu = 8.2e5; 
-        float elastic_lambda = 11.5e5;
-        auto P_term_0 = elastic_mu * (F_minus_F_inv_T);
-        auto P_term_1 = elastic_lambda * std::log(J) * F_inv_T;
-        auto P = P_term_0 + P_term_1;
-        auto stress = (1.0f / J) * (P * F_T);
-        return stress;
-    }
-    glm::mat2 ModelWater(Particle & particle){
-        float eos_stiffness = 10;
-        float eos_power = 4;
-        float rest_density = 0.3 * 2;
-        float density = GridDim * GridDim * (particle.Mass / particle.Volume);
-        float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
-        glm::mat2x2 stress = glm::mat2x2(
-                    -pressure, 0, 
-                        0, -pressure
-                );
-        particle.Colour.r = 0;
-        particle.Colour.g = 255;
-        particle.Colour.b = 255 * std::clamp(float(rest_density / density),0.0f,1.0f);
-
-        float dynamic_viscosity = 0.01;
-        // velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
-        glm::mat2x2 dudv = particle.VelocityField;
-         // build strain from the velocity gradient
-        float trace = (dudv[0][0] + dudv[1][1]);
-        glm::mat2x2 strain = dudv;
-        strain[1][0] = trace;
-        strain[0][1] = trace;
-        glm::mat2x2 viscosity_term = dynamic_viscosity * strain;
-        stress += viscosity_term;
-        return stress;
     }
     void P2G()
     {
@@ -178,22 +135,32 @@ struct Phase{
         float Friction = 0.01;
 #pragma omp parallel for
         for(int x = 0; x < GridSize;++x){
-            for(int d = 0;d < 3;++d){
+            for(int d = 0;d < 4;++d){
+                ////Floor 
+                //GetGrid(x,d).Velocity.y = std::max(GetGrid(x,d).Velocity.y,0.0f);
+                //GetGrid(x,d).Velocity.x *= Friction;
+                ////Ceiling
+                ////GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
+                //GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
+                //GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
+                ////Left wall
+                //GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
+                //GetGrid(d,x).Velocity.y *= Friction;
+                ////Right wall
+                //GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
+                //GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
                 //Floor 
-                GetGrid(x,d).Velocity.y = std::max(GetGrid(x,d).Velocity.y,0.0f);
-                GetGrid(x,d).Velocity.x *= Friction;
+                GetGrid(x,d).Velocity.y = 0;
+                GetGrid(x,d).Velocity.x = 0;
                 //Ceiling
-                //GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
-                GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
-                GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
+                GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
+                GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
                 //Left wall
-                //GetGrid(d,x).Velocity.x = 0; 
-                GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
-                GetGrid(d,x).Velocity.y *= Friction;
+                GetGrid(d,x).Velocity.x = 0;
+                GetGrid(d,x).Velocity.y = 0;
                 //Right wall
-                //GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
-                GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
-                GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
+                GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
+                GetGrid(GridSize - (1 + d),x).Velocity.y = 0;
             }
         }
     }
@@ -372,10 +339,9 @@ void CreateBoat(glm::vec2 pos = (glm::vec2(RealSize,RealSize) / 2.0f)){
     CreateRect(pos + glm::vec2(3.5,1.5),glm::vec2(0.5,2));
     CreateRect(pos + glm::vec2(-3.5,1.5),glm::vec2(0.5,2));
 }
-void CreatePond(float height,float resolution = 0.12)
+void CreatePond(float height,float resolution = 0.12,float mass = 0.5)
 {
     float rest_density = 0.3 * 2;
-    float mass = 2;
     float noise = 0.01;
     const float border = (GridDim * 3);
     glm::vec2 count = glm::vec2(RealSize-(border*2),height-(border)) / resolution;
@@ -384,7 +350,7 @@ void CreatePond(float height,float resolution = 0.12)
         for(int y = 0;y < count.y;++y)
         {
                 auto pa = Particle();
-                pa.Mass = 0.5;
+                pa.Mass = mass;
                 float dx = noise * distribution(generator);
                 float dy = noise * distribution(generator);
                 pa.Position = (glm::vec2(x,y)*resolution)  + glm::vec2(dx,dy) + glm::vec2(border,border); 
