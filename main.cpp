@@ -23,10 +23,10 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 400;
-constexpr static int Delay = 2;
+constexpr static int MaxTime = 300;
+constexpr static float Delay = 1.0/60.0;
 constexpr static float DeltaTime = Phase::DeltaTime;
-static constexpr int SubSteps = 2*(Delay * 1e-2)/DeltaTime;
+static constexpr int SubSteps = static_cast<int>(Delay/DeltaTime);
 static constexpr int Resolution = 20;
 static constexpr int RenderSize = RealSize * Resolution;
 
@@ -48,7 +48,7 @@ glm::mat2 ModelElastic(Particle & particle)
     return stress;
 }
 glm::mat2 ModelWater(Particle & particle){
-    float eos_stiffness = 10;
+    float eos_stiffness = 100;
     float eos_power = 4;
     float rest_density = 1;
     float density = GridDim * GridDim * (particle.Mass / particle.Volume);
@@ -74,9 +74,9 @@ glm::mat2 ModelWater(Particle & particle){
     return stress;
 }
 glm::mat2 ModelAir(Particle & particle){
-    float eos_stiffness = 300;
+    float eos_stiffness = 400;
     float eos_power = 4;
-    float rest_density = 0.03;
+    float rest_density = 0.01;
     float density = GridDim * GridDim * (particle.Mass / particle.Volume);
     float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
     glm::mat2x2 stress = glm::mat2x2(
@@ -121,8 +121,9 @@ void PaintPixel(float xi,float yi,int r,int g,int b){
     }
 }
 void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
-    for(int dx = 0;dx < size;++dx){
-        for(int dy = 0;dy < size;++dy){
+    size /= 2;
+    for(int dx = -size;dx <= size;++dx){
+        for(int dy = -size;dy <= size;++dy){
             int x = static_cast<int>((xi) * Resolution) + dx;
             int y = static_cast<int>((yi) * Resolution) + dy;
             int v = 4 * (x + (RenderSize * y));
@@ -137,10 +138,10 @@ void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
         }
     }
 }
-void SaveParticles(Phase & ph,GifWriter & g,int delay){
+void SaveParticles(Phase & ph,GifWriter & g,int delay,int size = 5){
         for(int i = 0;i < ph.ParticleList.ParticleCount;++i){
             auto p = ph.ParticleList.Get(i);
-            PaintXY(p.Position.x,RealSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,5);
+            PaintXY(p.Position.x,RealSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,size);
         }
 }
 void PaintNumbers(int MaxTime,int t)
@@ -185,7 +186,7 @@ void PaintGrid(Phase & ph)
         for(int y = 0;y < GridSize;++y){
             Grid & g = ph.GetGrid(x,y);
             auto start = (glm::vec2(static_cast<float>(x),static_cast<float>(y)) * GridDim);
-            PaintVector(start,g.Velocity);
+            //PaintVector(start,g.Velocity);
         }
     }
 }
@@ -235,11 +236,13 @@ int main(int argc, char ** args)
 //    PhaseWater.CreatePond(WaterHeight,0.2,1);
 //    PhaseElastic.CreateBoat(glm::vec2(10,WaterHeight + 3));
 //    PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
-    float BeamLength = RealSize/5;
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,0.1),40);
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,8));
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,8));
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(2,4),90);
+    float BeamLength = RealSize/3;
+    //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2.0,RealSize/2.0),0.5,0.1);
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,1),40);
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,4));
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,4));
+
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(1,4),90);
 
 
     for(int t = 0;t < MaxTime;++t)
@@ -250,9 +253,12 @@ int main(int argc, char ** args)
             //CreateBlock();
             //CreateBoat();
         }
-		if(t % 1 == 0 && t < 40){
-//			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,2*RealSize/3),glm::vec2(RealSize/2.0,RealSize/10.0),0.04,0.1);
+		if(t % 1 == 0 && t < 10){
+			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
+		if(t % 1 == 0 && t < 200){
+			PhaseWater.CreateRectFixedMass(glm::vec2(5,35),glm::vec2(1,1),2,0.5);
+        }
         for(int i = 0; i < SubSteps;++i){
             PhaseWater.UpdateBegin();
             PhaseElastic.UpdateBegin();
@@ -271,8 +277,8 @@ int main(int argc, char ** args)
         //std::cout<< "G2P:" << Time_G2P<<"\n";
         //std::cout<< "Update particle:" << Time_UpdateParticles<<"\n";
         std::fill(frame.begin(),frame.end(),0);
-        //PaintGrid();
-        SaveParticles(PhaseAir,g,delay);
+        //PaintGrid(PhaseAir);
+        SaveParticles(PhaseAir,g,delay,2);
         SaveParticles(PhaseWater,g,delay);
         SaveParticles(PhaseElastic,g,delay);
         PaintNumbers(MaxTime,t);

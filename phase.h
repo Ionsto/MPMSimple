@@ -211,17 +211,17 @@ struct Phase{
             particle.Position.x = std::clamp(particle.Position.x,boarder, RealSize - boarder);
             particle.Position.y = std::clamp(particle.Position.y,boarder, RealSize - boarder);
     //Check in bounds
-            if(particle.Position.x < 0)
+            if(particle.Position.x <= 0)
             {
-                particle.Position.x = 0;
+                particle.Position.x = 0.1;
             }
             if(particle.Position.x >= RealSize)
             {
                 particle.Position.x = RealSize - 0.1;
             }
-            if(particle.Position.y < 0)
+            if(particle.Position.y <= 0)
             {
-                particle.Position.y = 0;
+                particle.Position.y = 0.1;
             }
             if(particle.Position.y >= RealSize)
             {
@@ -273,7 +273,7 @@ struct Phase{
     }
 void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
     float noise = 0.01f;
-    glm::ivec2 count = 2.0f*size / resolution;
+    glm::ivec2 count = 2.0f*size/resolution;
     float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
     for(int x = 0;x <= count.x;++x)
     {
@@ -291,7 +291,7 @@ void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution
     }
 }
 void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float mass = 1){
-    float noise = 0.01f;
+    float noise = 0.10f;
     float mass_per_unit = mass;
     //int c = ((size.x * size.y * 4) * density)/mass_per_unit;
     float resolution = std::sqrt(mass_per_unit/density);

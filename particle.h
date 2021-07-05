@@ -3,7 +3,7 @@
 struct Particle{
     int Type = 0;
     float Mass = 1;
-    float Volume = 1;
+    float Volume = 5;
     glm::vec2 Position = glm::vec2(0);
     glm::vec3 Colour = glm::vec3(0);
     glm::vec2 Velocity = glm::vec2(0);
