@@ -140,27 +140,27 @@ struct Phase{
                 //GetGrid(x,d).Velocity.y = std::max(GetGrid(x,d).Velocity.y,0.0f);
                 //GetGrid(x,d).Velocity.x *= Friction;
                 ////Ceiling
-                ////GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
-                //GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
-                //GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
-                ////Left wall
-                //GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
-                //GetGrid(d,x).Velocity.y *= Friction;
-                ////Right wall
-                //GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
-                //GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
+                //GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
+                GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
+                GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
+                //Left wall
+                GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
+                GetGrid(d,x).Velocity.y *= Friction;
+                //Right wall
+                GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
+                GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
                 //Floor 
                 GetGrid(x,d).Velocity.y = 0;
                 GetGrid(x,d).Velocity.x = 0;
                 //Ceiling
-                GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
-                GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
-                //Left wall
-                GetGrid(d,x).Velocity.x = 0;
-                GetGrid(d,x).Velocity.y = 0;
-                //Right wall
-                GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
-                GetGrid(GridSize - (1 + d),x).Velocity.y = 0;
+                //GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
+                //GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
+                ////Left wall
+                //GetGrid(d,x).Velocity.x = 0;
+                //GetGrid(d,x).Velocity.y = 0;
+                ////Right wall
+                //GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
+                //GetGrid(GridSize - (1 + d),x).Velocity.y = 0;
             }
         }
     }
@@ -290,7 +290,7 @@ void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution
         }
     }
 }
-void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float mass = 1){
+void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float mass = 1,glm::vec2 vel = glm::vec2(0,0)){
     float noise = 0.10f;
     float mass_per_unit = mass;
     //int c = ((size.x * size.y * 4) * density)/mass_per_unit;
@@ -308,6 +308,7 @@ void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float m
             pa.Colour.r = 255;
             pa.Mass = mass_per_unit;
             pa.Type = 0;
+            pa.Velocity = vel;
             ParticleList.Add(pa);
         }
     }

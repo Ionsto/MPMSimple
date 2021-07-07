@@ -23,7 +23,7 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 300;
+constexpr static int MaxTime = 1000;
 constexpr static float Delay = 1.0/60.0;
 constexpr static float DeltaTime = Phase::DeltaTime;
 static constexpr int SubSteps = static_cast<int>(Delay/DeltaTime);
@@ -48,11 +48,11 @@ glm::mat2 ModelElastic(Particle & particle)
     return stress;
 }
 glm::mat2 ModelWater(Particle & particle){
-    float eos_stiffness = 100;
+    float eos_stiffness = 500;
     float eos_power = 4;
     float rest_density = 1;
     float density = GridDim * GridDim * (particle.Mass / particle.Volume);
-    float pressure = std::max(-0.1f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
+    float pressure = std::max(-0.05f, eos_stiffness * (std::pow(density / rest_density, eos_power) - 1));
     glm::mat2x2 stress = glm::mat2x2(
                 -pressure, 0, 
                     0, -pressure
@@ -256,8 +256,8 @@ int main(int argc, char ** args)
 		if(t % 1 == 0 && t < 10){
 			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
-		if(t % 1 == 0 && t < 200){
-			PhaseWater.CreateRectFixedMass(glm::vec2(5,35),glm::vec2(1,1),2,0.5);
+		if(t % 1 == 0){
+			PhaseWater.CreateRectFixedMass(glm::vec2(5,35),glm::vec2(1,1),5,0.5,glm::vec2(0,-6));
         }
         for(int i = 0; i < SubSteps;++i){
             PhaseWater.UpdateBegin();
