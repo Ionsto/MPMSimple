@@ -16,7 +16,7 @@ struct Phase{
     std::function<glm::mat2(Particle &)> model;
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution = std::uniform_real_distribution<float>(-0.5,0.5);
-    constexpr static float DeltaTime = 1e-4;
+    constexpr static float DeltaTime = 1e-3;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
     constexpr static float GridDim = 0.2;
@@ -141,8 +141,8 @@ struct Phase{
                 //GetGrid(x,d).Velocity.x *= Friction;
                 ////Ceiling
                 //GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
-                GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
-                GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
+                //GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
+                //GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
                 //Left wall
                 GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
                 GetGrid(d,x).Velocity.y *= Friction;
@@ -153,8 +153,8 @@ struct Phase{
                 GetGrid(x,d).Velocity.y = 0;
                 GetGrid(x,d).Velocity.x = 0;
                 //Ceiling
-                //GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
-                //GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
+                GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
+                GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
                 ////Left wall
                 //GetGrid(d,x).Velocity.x = 0;
                 //GetGrid(d,x).Velocity.y = 0;
@@ -271,7 +271,7 @@ struct Phase{
         p.Position = pos;
         ParticleList.Add(p);
     }
-void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
+void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.15,glm::vec2 vel = glm::vec2(0)){
     float noise = 0.01f;
     glm::ivec2 count = 2.0f*size/resolution;
     float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
@@ -283,6 +283,7 @@ void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution
             float dx = -size.x + (x*2*size.x/count.x) + (noise * distribution(generator));
             float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
             pa.Position = pos + glm::vec2(dx,dy); 
+            pa.Velocity = vel;
             pa.Colour.r = 255;
             pa.Mass = mass_per_unit;
             pa.Type = 0;

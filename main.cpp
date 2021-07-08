@@ -23,7 +23,7 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 1000;
+constexpr static int MaxTime = 1500;
 constexpr static float Delay = 1.0/60.0;
 constexpr static float DeltaTime = Phase::DeltaTime;
 static constexpr int SubSteps = static_cast<int>(Delay/DeltaTime);
@@ -39,12 +39,36 @@ glm::mat2 ModelElastic(Particle & particle)
     auto F_minus_F_inv_T = F - F_inv_T; 
 
     //Lame properties
-    float elastic_mu = 8.2e6; 
-    float elastic_lambda = 11.5e5;
-    auto P_term_0 = elastic_mu * (F_minus_F_inv_T);
-    auto P_term_1 = elastic_lambda * std::log(J) * F_inv_T;
+    //float elastic_mu = 8.2e6; 
+    //float elastic_lambda = 11.5e5;
+    auto P_term_0 = particle.elastic_mu * (F_minus_F_inv_T);
+    auto P_term_1 = particle.elastic_lambda * std::log(J) * F_inv_T;
     auto P = P_term_0 + P_term_1;
     auto stress = (1.0f / J) * (P * F_T);
+    auto mean = 0.5*(stress[0][0]+stress[1][1]);
+    auto radii = std::sqrt(std::pow(0.5*(stress[0][0]+stress[1][1]),2) + std::pow(stress[0][1],2));
+    float p1 = mean + radii;
+    float p0 = mean - radii;
+    float max_principal = 1e4;
+    float max_tresca = 5e5;
+    float elastic_limit = 1e4;
+    float tresca = radii * 2;
+    particle.Colour.r = 255;
+    particle.Colour.g = 0;
+//    particle.Colour.b = 255 * std::clamp(float(p1 / max_principal),0.0f,1.0f);
+    particle.Colour.b = 255 * std::clamp(float(tresca / max_tresca),0.0f,1.0f);
+    //if(p1 > max_principal){
+    //particle.elastic_lambda = 11.5e5 * std::clamp(2 - (float(tresca/elastic_limit)),0.8f,1.0f);
+    if(radii * 2 > max_tresca){
+        particle.Colour.r = 0;
+        particle.Colour.g = 255;
+        particle.Colour.b = 0;
+        stress[0][0] = std::min(0.0f,stress[0][0]);
+        stress[1][1] = std::min(0.0f,stress[1][1]);
+//        stress[0][1] = 0;
+//        stress[1][0] = 0;
+//        particle.DeformationGradient = glm::mat2x2(1);
+    }
     return stress;
 }
 glm::mat2 ModelWater(Particle & particle){
@@ -233,42 +257,45 @@ int main(int argc, char ** args)
     //PhaseAir.CreateRect(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),20,0.3);
     //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),0.2,0.01);
 
-//    PhaseWater.CreatePond(WaterHeight,0.2,1);
-//    PhaseElastic.CreateBoat(glm::vec2(10,WaterHeight + 3));
-//    PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
+    //PhaseWater.CreatePond(WaterHeight,0.18,1);
+    //PhaseElastic.CreateBoat(glm::vec2(30,WaterHeight + 3));
+    //PhaseElastic.CreateBoat(glm::vec2(15,WaterHeight + 3));
     float BeamLength = RealSize/3;
     //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2.0,RealSize/2.0),0.5,0.1);
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,1),40);
+    
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,0.5),40);
     PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,4));
     PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,4));
 
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(1,4),90);
-
+   // PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(0.5,10),90);
+   // PhaseElastic.CreateRect(glm::vec2(RealSize/2,20),glm::vec2(5,5),200);
 
     for(int t = 0;t < MaxTime;++t)
     {
         float dt = DeltaTime;
         std::cout<<"T:"<<t<<std::endl;
-        if(t == 120){
+        if(t == 300){
+            //PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(1,4),90);
             //CreateBlock();
             //CreateBoat();
+            PhaseElastic.CreateBoat(glm::vec2(RealSize/2,30));
         }
 		if(t % 1 == 0 && t < 10){
-			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
+//			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
 		if(t % 1 == 0){
-			PhaseWater.CreateRectFixedMass(glm::vec2(5,35),glm::vec2(1,1),5,0.5,glm::vec2(0,-6));
+			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
         }
         for(int i = 0; i < SubSteps;++i){
-            PhaseWater.UpdateBegin();
             PhaseElastic.UpdateBegin();
+            PhaseWater.UpdateBegin();
             PhaseAir.UpdateBegin();
             PhaseCoupling(PhaseWater,PhaseElastic);
             PhaseCoupling(PhaseWater,PhaseAir);
             PhaseCoupling(PhaseElastic,PhaseAir);
             PhaseWater.UpdateEnd();
-            PhaseElastic.UpdateEnd();
             PhaseAir.UpdateEnd();
+            PhaseElastic.UpdateEnd();
         }
         //std::cout<< "Timings\n";
         //std::cout<< "Reset grid:" << Time_ResetGrid<<"\n";
