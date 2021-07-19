@@ -38,9 +38,6 @@ glm::mat2 ModelElastic(Particle & particle)
     auto F_inv_T = glm::inverse(F_T);
     auto F_minus_F_inv_T = F - F_inv_T; 
 
-    //Lame properties
-    //float elastic_mu = 8.2e6; 
-    //float elastic_lambda = 11.5e5;
     auto P_term_0 = particle.elastic_mu * (F_minus_F_inv_T);
     auto P_term_1 = particle.elastic_lambda * std::log(J) * F_inv_T;
     auto P = P_term_0 + P_term_1;

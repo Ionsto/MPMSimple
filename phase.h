@@ -287,6 +287,7 @@ void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution
             pa.Colour.r = 255;
             pa.Mass = mass_per_unit;
             pa.Type = 0;
+            pa.Volume = resolution * resolution;
             ParticleList.Add(pa);
         }
     }
@@ -297,19 +298,21 @@ void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float m
     //int c = ((size.x * size.y * 4) * density)/mass_per_unit;
     float resolution = std::sqrt(mass_per_unit/density);
     glm::ivec2 count = 2.0f*size / resolution;
+    glm::vec2 step_size = 2*size/count;
 //    float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
     for(int x = 0;x <= count.x;++x)
     {
         for(int y = 0;y <= count.y;++y)
         {
             auto pa = Particle();
-            float dx = -size.x + (x*2*size.x/count.x) + (noise * distribution(generator));
+            float dx = -size.x + (x*.x) + (noise * distribution(generator));
             float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
             pa.Position = pos + glm::vec2(dx,dy); 
             pa.Colour.r = 255;
             pa.Mass = mass_per_unit;
             pa.Type = 0;
             pa.Velocity = vel;
+            pa.Volume = resolution * resolution;
             ParticleList.Add(pa);
         }
     }
@@ -332,6 +335,7 @@ void CreateBlock(){
         pa.Colour.b = rand()%255;
         pa.Mass = 0.2;
         pa.Type = 0;
+        pa.Volume = dx*dy;
         ParticleList.Add(pa);
     }
     }
@@ -341,8 +345,7 @@ void CreateBoat(glm::vec2 pos = (glm::vec2(RealSize,RealSize) / 2.0f)){
     CreateRect(pos + glm::vec2(3.5,1.5),glm::vec2(0.5,2));
     CreateRect(pos + glm::vec2(-3.5,1.5),glm::vec2(0.5,2));
 }
-void CreatePond(float height,float resolution = 0.12,float mass = 0.5)
-{
+void CreatePond(float height,float resolution = 0.12,float mass = 0.5) {
     float rest_density = 0.3 * 2;
     float noise = 0.01;
     const float border = (GridDim * 3);
@@ -361,6 +364,7 @@ void CreatePond(float height,float resolution = 0.12,float mass = 0.5)
                 pa.Colour.r = rand()%255;
                 pa.Colour.g = rand()%255;
                 pa.Colour.b = rand()%255;
+                pa.Volume = resolution * resolution;
                 ParticleList.Add(pa);
         }
     }

@@ -4,8 +4,8 @@ struct Particle{
     int Type = 0;
     float Mass = 1;
     float Volume = 5;
-    float elastic_mu = 8.2e6; 
-    float elastic_lambda = 10.0e5;
+    float elastic_mu = 8.2e4; 
+    float elastic_lambda = 10.0e4;
     glm::vec2 Position = glm::vec2(0);
     glm::vec3 Colour = glm::vec3(0);
     glm::vec2 Velocity = glm::vec2(0);
