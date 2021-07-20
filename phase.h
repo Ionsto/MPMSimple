@@ -298,14 +298,14 @@ void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float m
     //int c = ((size.x * size.y * 4) * density)/mass_per_unit;
     float resolution = std::sqrt(mass_per_unit/density);
     glm::ivec2 count = 2.0f*size / resolution;
-    glm::vec2 step_size = 2*size/count;
+    glm::vec2 step_size = 2.0f*size/glm::vec2(count);
 //    float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
     for(int x = 0;x <= count.x;++x)
     {
         for(int y = 0;y <= count.y;++y)
         {
             auto pa = Particle();
-            float dx = -size.x + (x*.x) + (noise * distribution(generator));
+            float dx = -size.x + (x*2*size.x) + (noise * distribution(generator));
             float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
             pa.Position = pos + glm::vec2(dx,dy); 
             pa.Colour.r = 255;
