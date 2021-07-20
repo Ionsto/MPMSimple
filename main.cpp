@@ -283,7 +283,7 @@ int main(int argc, char ** args)
 //			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
 		if(t % 1 == 0){
-//			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
+			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
         }
         for(int i = 0; i < SubSteps;++i){
             PhaseElastic.UpdateBegin();
