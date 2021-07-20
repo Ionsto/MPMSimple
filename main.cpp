@@ -260,12 +260,14 @@ int main(int argc, char ** args)
     float BeamLength = RealSize/3;
     //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2.0,RealSize/2.0),0.5,0.1);
     
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,0.5),40);
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,4));
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,4));
+    //PhaseElastic.CreateRect(glm::vec2(RealSize/2,8),glm::vec2(BeamLength + 2,0.5),40);
+    //PhaseElastic.CreateRect(glm::vec2(RealSize/2 - BeamLength,4),glm::vec2(1,4));
+    //PhaseElastic.CreateRect(glm::vec2(RealSize/2 + BeamLength,4),glm::vec2(1,4));
 
    // PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(0.5,10),90);
    // PhaseElastic.CreateRect(glm::vec2(RealSize/2,20),glm::vec2(5,5),200);
+   //
+    PhaseElastic.CreateRect(glm::vec2(RealSize/2,4),glm::vec2(RealSize,4),10);
 
     for(int t = 0;t < MaxTime;++t)
     {
@@ -281,7 +283,7 @@ int main(int argc, char ** args)
 //			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
 		if(t % 1 == 0){
-			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
+//			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
         }
         for(int i = 0; i < SubSteps;++i){
             PhaseElastic.UpdateBegin();
