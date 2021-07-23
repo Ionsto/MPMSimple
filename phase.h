@@ -16,7 +16,7 @@ struct Phase{
     std::function<glm::mat2(Particle &)> model;
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution = std::uniform_real_distribution<float>(-0.5,0.5);
-    constexpr static float DeltaTime = 1e-3;
+    constexpr static float DeltaTime = 5e-4;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
     constexpr static float GridDim = 0.2;

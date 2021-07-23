@@ -23,7 +23,7 @@ constexpr static float GridDim = 0.2;
 constexpr static float inertial_scalar_inv = 1.0/(0.25 * GridDim * GridDim);
 constexpr static int GridSize = static_cast<int>(static_cast<float>(RealSize)/GridDim);
 
-constexpr static int MaxTime = 1500;
+constexpr static int MaxTime = 300;
 constexpr static float Delay = 1.0/60.0;
 constexpr static float DeltaTime = Phase::DeltaTime;
 static constexpr int SubSteps = static_cast<int>(Delay/DeltaTime);
@@ -64,6 +64,101 @@ glm::mat2 ModelElastic(Particle & particle)
         stress[1][1] = std::min(0.0f,stress[1][1]);
 //        stress[0][1] = 0;
 //        stress[1][0] = 0;
+//        particle.DeformationGradient = glm::mat2x2(1);
+    }
+    return stress;
+}
+glm::mat2 ModelTresca(Particle & particle)
+{
+    auto F = particle.DeformationGradient;
+    auto J = glm::determinant(F);
+    auto F_T = glm::transpose(F);
+    auto F_inv_T = glm::inverse(F_T);
+    auto F_minus_F_inv_T = F - F_inv_T; 
+
+    float elastic_mu = 1e4;
+    float elastic_lambda = 2e6;
+    float theta = 30;
+    float adheasion = 2;
+
+    auto P_term_0 = elastic_mu * (F_minus_F_inv_T);
+    auto P_term_1 = elastic_lambda * std::log(J) * F_inv_T;
+    auto P = P_term_0 + P_term_1;
+    auto stress = (1.0f / J) * (P * F_T);
+    auto mean = 0.5*(stress[0][0]+stress[1][1]);
+    auto radii = std::sqrt(std::pow(0.5*(stress[0][0]+stress[1][1]),2) + std::pow(stress[0][1],2));
+    stress[0][0] = std::min(adheasion,stress[0][0]);
+    stress[1][1] = std::min(adheasion,stress[1][1]);
+
+    float p3 = mean - radii;
+    float p0 = mean + radii;
+
+    float max_tresca = 5e4;
+    float tresca = radii * 2;
+
+    particle.Colour.r = 255;
+    particle.Colour.g = 100;
+    particle.Colour.b = 0;
+
+    if(tresca > max_tresca || std::abs(stress[0][1]) > max_shear){
+        particle.Colour.r = 0;
+        particle.Colour.g = 255;
+        particle.Colour.b = 0;
+        stress[0][0] = std::min(0.0f,stress[0][0]);
+        stress[1][1] = std::min(0.0f,stress[1][1]);
+        stress[0][1] = std::copysign(std::min(max_shear,std::abs(stress[0][1])),stress[0][1]);
+        stress[1][0] = std::copysign(std::min(max_shear,std::abs(stress[1][0])),stress[0][1]);
+//        particle.DeformationGradient = glm::mat2x2(1);
+    }
+    return stress;
+}
+glm::mat2 ModelMohrColoumb(Particle & particle)
+{
+    auto F = particle.DeformationGradient;
+    auto J = glm::determinant(F);
+    auto F_T = glm::transpose(F);
+    auto F_inv_T = glm::inverse(F_T);
+    auto F_minus_F_inv_T = F - F_inv_T; 
+
+    float elastic_mu = 1e4;
+    float elastic_lambda = 2e6;
+    float theta = 30;
+    float adheasion = 2;
+
+    auto P_term_0 = elastic_mu * (F_minus_F_inv_T);
+    auto P_term_1 = elastic_lambda * std::log(J) * F_inv_T;
+    auto P = P_term_0 + P_term_1;
+    auto stress = (1.0f / J) * (P * F_T);
+    auto mean = 0.5*(stress[0][0]+stress[1][1]);
+    auto radii = std::sqrt(std::pow(0.5*(stress[0][0]+stress[1][1]),2) + std::pow(stress[0][1],2));
+    stress[0][0] = std::min(adheasion,stress[0][0]);
+    stress[1][1] = std::min(adheasion,stress[1][1]);
+
+    float p0 = mean - radii;
+    float max_principal = 1e4;
+    float max_tresca = 5e4;
+    float max_shear = 5e2;
+    float elastic_limit = 1e3;
+    float tresca = radii * 2;
+    particle.Colour.r = 255;
+    particle.Colour.g = 100;
+    particle.Colour.b = 0;
+    
+    //float sigma = mean - (radii * std::sin(theta));
+    //float tau = (radii * std::cos(theta));
+    float tresca_shear = (mean * std::sin(theta)) + (adheasion*std::cos(theta));
+//    particle.Colour.b = 255 * std::clamp(float(p1 / max_principal),0.0f,1.0f);
+//    particle.Colour.b = 255 * std::clamp(float(tresca / max_tresca),0.0f,1.0f);
+    //if(p1 > max_principal){
+    //particle.elastic_lambda = 11.5e5 * std::clamp(2 - (float(tresca/elastic_limit)),0.8f,1.0f);
+    if(radii * 2 > max_tresca || std::abs(stress[0][1]) > max_shear){
+        particle.Colour.r = 0;
+        particle.Colour.g = 255;
+        particle.Colour.b = 0;
+        stress[0][0] = std::min(0.0f,stress[0][0]);
+        stress[1][1] = std::min(0.0f,stress[1][1]);
+        stress[0][1] = std::copysign(std::min(max_shear,std::abs(stress[0][1])),stress[0][1]);
+        stress[1][0] = std::copysign(std::min(max_shear,std::abs(stress[1][0])),stress[0][1]);
 //        particle.DeformationGradient = glm::mat2x2(1);
     }
     return stress;
@@ -123,6 +218,7 @@ glm::mat2 ModelAir(Particle & particle){
 
 Phase PhaseWater;
 Phase PhaseElastic;
+Phase PhaseSoil;
 Phase PhaseAir;
 
 std::vector<uint8_t> frame(RenderSize * RenderSize * 4, 0);
@@ -159,7 +255,7 @@ void PaintXY(float xi,float yi,int r,int g,int b,int size=Resolution){
         }
     }
 }
-void SaveParticles(Phase & ph,GifWriter & g,int delay,int size = 5){
+void SaveParticles(Phase & ph,GifWriter & g,int delay,int size = 3){
         for(int i = 0;i < ph.ParticleList.ParticleCount;++i){
             auto p = ph.ParticleList.Get(i);
             PaintXY(p.Position.x,RealSize - p.Position.y,p.Colour.r,p.Colour.g,p.Colour.b,size);
@@ -211,7 +307,7 @@ void PaintGrid(Phase & ph)
         }
     }
 }
-void PhaseCoupling(Phase & PhA,Phase & PhB)
+void PhaseCouplingNoSlip(Phase & PhA,Phase & PhB)
 {
     for(int x = 0; x < PhA.GridSize;++x)
     {
@@ -232,6 +328,27 @@ void PhaseCoupling(Phase & PhA,Phase & PhB)
         }
     }
 }
+void PhaseCouplingFluid(Phase & PhA,Phase & PhB)
+{
+    for(int x = 0; x < PhA.GridSize;++x)
+    {
+        for(int y = 0; y < PhA.GridSize;++y)
+        {
+            auto& GA = PhA.GetGrid(x,y);
+            auto& GB = PhB.GetGrid(x,y);
+            auto dv = GA.Velocity - GB.Velocity;
+            float MassTotal = GA.Mass + GB.Mass;
+            if(MassTotal != 0)
+            {
+                float nA = GA.Mass / MassTotal;
+                float nB = GB.Mass / MassTotal;
+                auto drag = dv * 0.2f;
+                GA.Velocity -= (drag * nB);
+                GB.Velocity += (drag * nA);
+            }
+        }
+    }
+}
 int main(int argc, char ** args)
 {
 	auto FramePath =fs::current_path() / "Frames/"; 
@@ -240,6 +357,7 @@ int main(int argc, char ** args)
 	std::cout<<FramePath<<std::endl;
 	PhaseWater.model = ModelWater;
     PhaseElastic.model = ModelElastic;
+    PhaseSoil.model = ModelMohrColoumb;
     PhaseAir.model = ModelAir;
 	auto fileName = "out.gif";
 	int delay = Delay;//round((DeltaTime * float(SubSteps))/1e-2);
@@ -250,6 +368,7 @@ int main(int argc, char ** args)
     using namespace std::chrono;
     auto start = high_resolution_clock::now();
     float WaterHeight = RealSize/5;
+    //Setup
 //void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.1*1.5){
     //PhaseAir.CreateRect(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),20,0.3);
     //PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,RealSize/2),glm::vec2(RealSize/2,RealSize/2),0.2,0.01);
@@ -267,34 +386,45 @@ int main(int argc, char ** args)
    // PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(0.5,10),90);
    // PhaseElastic.CreateRect(glm::vec2(RealSize/2,20),glm::vec2(5,5),200);
    //
-    PhaseElastic.CreateRect(glm::vec2(RealSize/2,4),glm::vec2(RealSize,4),10);
+    PhaseSoil.CreateRect(glm::vec2(RealSize/2,2),glm::vec2(RealSize,2),50);
 
+    PhaseSoil.CreateRect(glm::vec2(RealSize/2,5),glm::vec2(4,1),50);
+    PhaseSoil.CreateRect(glm::vec2(RealSize/2,7),glm::vec2(3,1),50);
+    PhaseSoil.CreateRect(glm::vec2(RealSize/2,9),glm::vec2(1,1),50);
+
+    //PhaseWater.CreateRect(glm::vec2((RealSize/4)-2,6),glm::vec2((RealSize/4)-2,2),20,0.1,glm::vec2(0,0));
+
+    //PhaseSoil.CreateRect(glm::vec2(RealSize/2,4),glm::vec2(4,4),10);
     for(int t = 0;t < MaxTime;++t)
     {
         float dt = DeltaTime;
         std::cout<<"T:"<<t<<std::endl;
-        if(t == 300){
+        if(t == 100){
             //PhaseElastic.CreateRect(glm::vec2(RealSize/2,30),glm::vec2(1,4),90);
             //CreateBlock();
             //CreateBoat();
-            PhaseElastic.CreateBoat(glm::vec2(RealSize/2,30));
+//            PhaseElastic.CreateBoat(glm::vec2(RealSize/4,30));
         }
 		if(t % 1 == 0 && t < 10){
 //			PhaseAir.CreateRectFixedMass(glm::vec2(RealSize/2,36),glm::vec2(RealSize/2.0,1),0.2,0.05);
 		}
 		if(t % 1 == 0){
-			PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),5,0.5,glm::vec2(0,-12));
+			//PhaseWater.CreateRect(glm::vec2(2,15),glm::vec2(1,1),2,0.5,glm::vec2(0,-2));
         }
         for(int i = 0; i < SubSteps;++i){
-            PhaseElastic.UpdateBegin();
+//            PhaseElastic.UpdateBegin();
             PhaseWater.UpdateBegin();
-            PhaseAir.UpdateBegin();
-            PhaseCoupling(PhaseWater,PhaseElastic);
-            PhaseCoupling(PhaseWater,PhaseAir);
-            PhaseCoupling(PhaseElastic,PhaseAir);
+            PhaseSoil.UpdateBegin();
+//            PhaseAir.UpdateBegin();
+//            PhaseCouplingNoSlip(PhaseWater,PhaseElastic);
+//            PhaseCouplingNoSlip(PhaseSoil,PhaseElastic);
+            PhaseCouplingFluid(PhaseSoil,PhaseWater);
+//            PhaseCoupling(PhaseWater,PhaseAir);
+//            PhaseCoupling(PhaseElastic,PhaseAir);
+//            PhaseElastic.UpdateEnd();
             PhaseWater.UpdateEnd();
-            PhaseAir.UpdateEnd();
-            PhaseElastic.UpdateEnd();
+            PhaseSoil.UpdateEnd();
+//            PhaseAir.UpdateEnd();
         }
         //std::cout<< "Timings\n";
         //std::cout<< "Reset grid:" << Time_ResetGrid<<"\n";
@@ -307,6 +437,7 @@ int main(int argc, char ** args)
         SaveParticles(PhaseAir,g,delay,2);
         SaveParticles(PhaseWater,g,delay);
         SaveParticles(PhaseElastic,g,delay);
+        SaveParticles(PhaseSoil,g,delay);
         PaintNumbers(MaxTime,t);
         GifWriteFrame(&g, frame.data(), RenderSize,RenderSize, delay);
 		std::ostringstream stringStream;
