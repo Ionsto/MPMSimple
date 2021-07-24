@@ -13,10 +13,11 @@
 #include <algorithm>
 #include <functional>
 struct Phase{
+    Particle InitParticle = Particle();
     std::function<glm::mat2(Particle &)> model;
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution = std::uniform_real_distribution<float>(-0.5,0.5);
-    constexpr static float DeltaTime = 5e-4;
+    constexpr static float DeltaTime = 1e-4;
     constexpr static int MaxParticles = 100000;
     constexpr static int RealSize = 40;
     constexpr static float GridDim = 0.2;
@@ -86,6 +87,8 @@ struct Phase{
 #pragma omp atomic update
                     g.Mass += WeightedMass;
 #pragma omp atomic update
+                    g.Volume += p.Volume * weight;
+#pragma omp atomic update
                     g.Velocity[0] += velocity_updated[0];
 #pragma omp atomic update
                     g.Velocity[1] += velocity_updated[1];
@@ -144,11 +147,11 @@ struct Phase{
                 //GetGrid(x,GridSize - (1 + d)).Velocity.y = std::min(GetGrid(x,GridSize - (1 + d)).Velocity.y,0.0f);
                 //GetGrid(x,GridSize - (1 + d)).Velocity.x *= Friction;
                 //Left wall
-                GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
-                GetGrid(d,x).Velocity.y *= Friction;
+                //GetGrid(d,x).Velocity.x = std::max(GetGrid(d,x).Velocity.x,0.0f); 
+                //GetGrid(d,x).Velocity.y *= Friction;
                 //Right wall
-                GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
-                GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
+                //GetGrid(GridSize - (1 + d),x).Velocity.x = std::min(GetGrid(GridSize - (1 + d),x).Velocity.x,0.0f);
+                //GetGrid(GridSize - (1 + d),x).Velocity.y *= Friction;
                 //Floor 
                 GetGrid(x,d).Velocity.y = 0;
                 GetGrid(x,d).Velocity.x = 0;
@@ -156,11 +159,11 @@ struct Phase{
                 GetGrid(x,GridSize - (1 + d)).Velocity.y = 0;
                 GetGrid(x,GridSize - (1 + d)).Velocity.x = 0;
                 ////Left wall
-                //GetGrid(d,x).Velocity.x = 0;
-                //GetGrid(d,x).Velocity.y = 0;
+                GetGrid(d,x).Velocity.x = 0;
+                GetGrid(d,x).Velocity.y = 0;
                 ////Right wall
-                //GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
-                //GetGrid(GridSize - (1 + d),x).Velocity.y = 0;
+                GetGrid(GridSize - (1 + d),x).Velocity.x = 0;
+                GetGrid(GridSize - (1 + d),x).Velocity.y = 0;
             }
         }
     }
@@ -230,6 +233,7 @@ struct Phase{
 
             if(isnan(particle.Position.x) || isnan(particle.Position.y)){
                 ParticleList.Remove(i);
+                std::cout<<"WARNING: particle removed due to inf energy\n";
                 i -= 1;
                 continue;
             }
@@ -271,15 +275,14 @@ struct Phase{
         p.Position = pos;
         ParticleList.Add(p);
     }
-void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.15,glm::vec2 vel = glm::vec2(0)){
-    float noise = 0.01f;
+void CreateRect(glm::vec2 pos,glm::vec2 size,float density = 40,float resolution = 0.15,glm::vec2 vel = glm::vec2(0),float noise = 0.01){
     glm::ivec2 count = 2.0f*size/resolution;
     float mass_per_unit = (density*(4 * size.x*size.y)) / (count.x * count.y);
     for(int x = 0;x <= count.x;++x)
     {
         for(int y = 0;y <= count.y;++y)
         {
-            auto pa = Particle();
+            auto pa = Particle(InitParticle);
             float dx = -size.x + (x*2*size.x/count.x) + (noise * distribution(generator));
             float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
             pa.Position = pos + glm::vec2(dx,dy); 
@@ -304,7 +307,7 @@ void CreateRectFixedMass(glm::vec2 pos,glm::vec2 size,float density = 40,float m
     {
         for(int y = 0;y <= count.y;++y)
         {
-            auto pa = Particle();
+            auto pa = Particle(InitParticle);
             float dx = -size.x + (x*2*size.x) + (noise * distribution(generator));
             float dy = -size.y + (y*2*size.y/count.y) + (noise * distribution(generator));
             pa.Position = pos + glm::vec2(dx,dy); 
@@ -325,7 +328,7 @@ void CreateBlock(){
     {
     for(int y = -count;y <= count;++y)
     {
-        auto pa = Particle();
+        auto pa = Particle(InitParticle);
         float dx = (x*size/count) + (noise * distribution(generator));
         float dy = (y*size/count) + (noise * distribution(generator));
 //                pa.Position = (glm::vec2(3,RealSize / 2.0f)) + glm::vec2(dx,dy); 
@@ -354,7 +357,7 @@ void CreatePond(float height,float resolution = 0.12,float mass = 0.5) {
     {
         for(int y = 0;y < count.y;++y)
         {
-                auto pa = Particle();
+                auto pa = Particle(InitParticle);
                 pa.Mass = mass;
                 float dx = noise * distribution(generator);
                 float dy = noise * distribution(generator);
@@ -369,6 +372,17 @@ void CreatePond(float height,float resolution = 0.12,float mass = 0.5) {
         }
     }
 }
+void RemoveZone(glm::vec2 pos, glm::vec2 size)
+{
+        for(int i = 0; i < ParticleList.ParticleCount;++i)
+        {
+            auto & particle = ParticleList.Get(i);
+            auto dp = particle.Position - pos;
+            if(abs(dp.x) < size.x && abs(dp.y) < size.y){
+                ParticleList.Remove(i--);
+            }
+        }
+}
 float WaterFlowCount = 0;
 int ParticleCount = 0;
 void WaterFlow(glm::vec2 pos,glm::vec2 size,float flow){
@@ -376,7 +390,7 @@ void WaterFlow(glm::vec2 pos,glm::vec2 size,float flow){
         for(int p = 0;p < WaterFlowCount;++p)
         {
             WaterFlowCount--;
-            auto pa = Particle();
+            auto pa = Particle(InitParticle);
             pa.Mass = 2;
             float dx = size.x * distribution(generator);
             float dy = size.y * distribution(generator);
