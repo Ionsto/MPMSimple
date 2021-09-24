@@ -98,7 +98,6 @@ glm::mat2 ModelTresca(Particle & particle)
     particle.Colour.r = 255;
     particle.Colour.g = 100;
     particle.Colour.b = 0;
-    particle.Colour.b = 255 * std::clamp(float(std::abs(tresca/max_tresca)),0.0f,1.0f);
 
     if(tresca > max_tresca){
         particle.Colour.r = 0;
@@ -121,6 +120,7 @@ glm::mat2 ModelTresca(Particle & particle)
     //    //stress[0][1] = std::copysign(std::min(max_tresca,std::abs(stress[0][1])),stress[0][1]);
     //    //stress[1][0] = std::copysign(std::min(max_tresca,std::abs(stress[1][0])),stress[0][1]);
     }
+    particle.Colour.b = 255 * std::clamp(float(std::abs(glm::determinant(particle.DeformationGradient)/4.0f)),0.0f,1.0f);
     return stress;
 }
 glm::mat2 ModelMohrColoumb(Particle & particle)
@@ -184,7 +184,7 @@ glm::mat2 ModelWater(Particle & particle){
     particle.Colour.g = 0;
     particle.Colour.b = 255;// * std::clamp(float(rest_density / density),0.0f,1.0f);
 
-    float dynamic_viscosity = 0.01;
+    float dynamic_viscosity = 0.03;
     // velocity gradient - MLS-MPM eq. 17, where derivative of quadratic polynomial is linear
     glm::mat2x2 dudv = particle.VelocityField;
      // build strain from the velocity gradient
@@ -376,8 +376,8 @@ int main(int argc, char ** args)
     PhaseElastic.InitParticle.elastic_lambda = 1e6;
     PhaseElastic.InitParticle.elastic_mu = 1e5;
     PhaseSoil.model = ModelTresca;
-    PhaseSoil.InitParticle.elastic_lambda = 1e3;
-    PhaseSoil.InitParticle.elastic_mu = 1e3;
+    PhaseSoil.InitParticle.elastic_lambda = 2e6;
+    PhaseSoil.InitParticle.elastic_mu = 1e5;
     PhaseAir.model = ModelAir;
 //    PhaseAir.InitParticle.elastic_lambda = 1e4;
 //    PhaseAir.InitParticle.elastic_mu = 1e4;
